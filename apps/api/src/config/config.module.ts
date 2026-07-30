@@ -1,8 +1,9 @@
 import { Global, Module } from '@nestjs/common';
 
+import { APP_ENV } from './app-env.token.js';
 import { getEnv } from './configuration.js';
 
-export const APP_ENV = Symbol('APP_ENV');
+export { APP_ENV };
 
 @Global()
 @Module({

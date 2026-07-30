@@ -32,6 +32,8 @@ These need a decision before the corresponding phase can be considered done, per
 | B18 | Confirmed accounting-software integration platform and approach (API vs. file export) | SRS REQ-INT-002; SRS-RECONCILIATION.md §2.7 | Phase 15, Phase 18 |
 | B19 | Confirmed payment gateway(s) actually contracted (Moyasar/HyperPay/PayTabs/Stripe) | SRS REQ-INT-003; Assumptions Register A6 | Phase 15, Phase 18 |
 | B20 | Product Strategy, Product Scope, and Product Module Map documents do not exist yet, even though the Customer domain doc (06) lists them as dependencies | Gap identified during this planning pass | Formally blocks nothing in the hybrid path (working assumption: CLAUDE.md + market research doc serve as informal substitutes), but should be written before Phase 00 is considered closed |
+| B21 | Real Microsoft Entra ID tenant ID, app registration client ID, and redirect URI are not yet available; `EntraIdProvider` is real, functional OIDC/JWKS verification code but cannot be exercised end-to-end without them | Auth domain (03) §12 | Blocking-for-production, not Blocking-for-MVP — local dev identity provider unblocks continued build work in the meantime |
+| B22 | Login's tenant disambiguation (a user's email may exist in more than one tenant) has no screen defined in the Screen Registry (doc 20) | Auth domain (03) §13 | Phase 04 (Design System and Application Shell) |
 
 ## Deferred (not blocking the MVP vertical slice)
 
@@ -64,6 +66,9 @@ These need a decision before the corresponding phase can be considered done, per
 | D25 | Dedicated per-tenant databases vs. shared schema with tenant_id | Database dictionary (18) open questions |
 | D26 | Cross-subsidiary shared projects / cross-legal-entity consolidated billing | Database dictionary (18) open questions |
 | D27 | Route Registry (doc 22) and API Registry (doc 19) — referenced as "next document" by two existing docs but not yet written | Database dictionary (18); Screen registry (20) |
+| D28 | MFA factor enrollment and verification (TOTP/SMS/authenticator push) — only the policy hook exists | Auth domain (03) §12 |
+| D29 | Customer Portal's own authentication surface, scope model, and rate limiting | Auth domain (03) §12; Customer Portal Domain gap |
+| D30 | `approval_request.context_snapshot_json` exact shape per consuming workflow — no business domain calls the approval engine yet | Auth domain (03) §12 |
 
 ---
 

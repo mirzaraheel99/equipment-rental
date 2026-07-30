@@ -30,4 +30,12 @@ export default [
       '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
+  {
+    files: ['prisma/seed/**/*.ts'],
+    rules: {
+      // Standalone scripts run outside the Nest app context (no @erms/config
+      // DI available) — dotenv-cli populates process.env before tsx runs.
+      'no-restricted-syntax': 'off',
+    },
+  },
 ];

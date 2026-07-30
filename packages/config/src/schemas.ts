@@ -33,12 +33,32 @@ export const observabilityEnvSchema = z.object({
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().optional().default(''),
 });
 
+export const authEnvSchema = z.object({
+  /** local-dev: stub OIDC issuer for seeded dev users. entra-id: Microsoft
+   * Entra ID federation (docs/04-Domain/03-AUTHENTICATION-AND-ACCESS-
+   * GOVERNANCE-DOMAIN-SPECIFICATION.md §5.1). */
+  AUTH_OIDC_PROVIDER: z.enum(['local-dev', 'entra-id']).default('local-dev'),
+  /** Signs/verifies ERMS's own access tokens (never the OIDC ID token). */
+  AUTH_JWT_ACCESS_SECRET: z.string().min(32, 'AUTH_JWT_ACCESS_SECRET must be at least 32 characters'),
+  AUTH_JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().positive().default(900),
+  AUTH_REFRESH_TTL_SECONDS: z.coerce.number().int().positive().default(1209600),
+  AUTH_STEP_UP_TTL_SECONDS: z.coerce.number().int().positive().default(300),
+  /** Signs the local dev provider's own stub ID tokens — dev/CI only, never
+   * used when AUTH_OIDC_PROVIDER=entra-id. */
+  AUTH_LOCAL_DEV_SIGNING_SECRET: z.string().optional(),
+  /** Required only when AUTH_OIDC_PROVIDER=entra-id; validated at provider
+   * construction time, not here, so local dev never needs real values. */
+  AUTH_ENTRA_TENANT_ID: z.string().optional(),
+  AUTH_ENTRA_CLIENT_ID: z.string().optional(),
+});
+
 export const apiEnvSchema = baseEnvSchema
   .merge(databaseEnvSchema)
   .merge(redisEnvSchema)
   .merge(objectStorageEnvSchema)
   .merge(mailEnvSchema)
   .merge(observabilityEnvSchema)
+  .merge(authEnvSchema)
   .extend({
     API_PORT: z.coerce.number().int().positive().default(4000),
   });

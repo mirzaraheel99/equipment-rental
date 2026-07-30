@@ -6,7 +6,9 @@ import { requireTenantId } from './tenant-context.js';
  * Every model below carries `tenant_id` per the database dictionary's
  * mandatory-tenant-scope rule (docs/06-Data/18-ENTERPRISE-DATABASE-DICTIONARY.md
  * §4.1). `Tenant` itself is intentionally excluded — it has no tenant_id,
- * it *is* the tenant.
+ * it *is* the tenant. `Permission` is also excluded — per §7.3 it is a
+ * fixed, cross-tenant registry with no tenant_id column (docs/04-Domain/
+ * 03-AUTHENTICATION-AND-ACCESS-GOVERNANCE-DOMAIN-SPECIFICATION.md §6).
  */
 const TENANT_SCOPED_MODELS = new Set([
   'TenantSetting',
@@ -21,6 +23,12 @@ const TENANT_SCOPED_MODELS = new Set([
   'DocumentVersion',
   'DocumentAccessLog',
   'Notification',
+  'UserAccount',
+  'Role',
+  'RolePermission',
+  'UserRoleAssignment',
+  'ApprovalRequest',
+  'ApprovalAction',
 ]);
 
 const WHERE_SCOPED_OPERATIONS = new Set([

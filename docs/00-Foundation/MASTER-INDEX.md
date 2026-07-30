@@ -32,6 +32,7 @@ Status legend: **Working Draft** = content exists, not yet business-approved. **
 
 | Doc | Status |
 |---|---|
+| `04-Domain/03-AUTHENTICATION-AND-ACCESS-GOVERNANCE-DOMAIN-SPECIFICATION.md` | Working Draft, Lite pass — **new in this pass** |
 | `04-Domain/05-ASSET-REGISTRY-DOMAIN-SPECIFICATION.md` | Working Draft — **new in this pass** |
 | `04-Domain/06-CUSTOMER-AND-CORPORATE-ACCOUNT-DOMAIN-SPECIFICATION.md` | Working Draft |
 | `04-Domain/07-CONTRACT-MANAGEMENT-DOMAIN-SPECIFICATION.md` | Working Draft |

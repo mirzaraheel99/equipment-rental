@@ -4,6 +4,21 @@ All notable documentation and planning changes to the ERMS repository.
 
 ## [Unreleased]
 
+### Added — 2026-07-30 (Phase 03 — Authentication, RBAC, and Governance)
+
+- `docs/04-Domain/03-AUTHENTICATION-AND-ACCESS-GOVERNANCE-DOMAIN-SPECIFICATION.md` — new domain spec (lite pass — see its §12 for explicit deferrals), authored just-in-time per the hybrid build strategy.
+- `apps/api` — Authentication and Access Governance implementation, per the domain doc and `docs/06-Data/18-ENTERPRISE-DATABASE-DICTIONARY.md` §7.1–§7.7:
+  - Prisma schema + migration for `UserAccount`, `Role`, `Permission`, `RolePermission`, `UserRoleAssignment`, `ApprovalRequest`, `ApprovalAction`.
+  - OIDC session exchange (`AuthService`, `AuthController`) via a pluggable `OidcProvider`: `EntraIdProvider` (real JWKS verification, untestable here without a real Entra ID tenant — B21) and `LocalDevProvider` (stub issuer for seeded dev users, `DevIdpController`).
+  - Short-lived, identity-only JWT access tokens (`AccessTokenService`) and Redis-backed rotating refresh tokens (`RefreshTokenService`) — no roles/permissions ever cached in a token (Decision Register #28).
+  - `AuthMiddleware` replaces the interim `x-tenant-id` header (Decision Register #26): tenant scope is now derived from the verified access token, with a fresh per-request active-user check.
+  - RBAC/ABAC authorization (`PermissionsService`, `PermissionsGuard`, `@RequirePermission`/`@ResourceScopeFrom`) — deny-by-default, deny-always-wins-over-allow, computed fresh from the database on every request; applied to the Phase 02 organization endpoints (superseding their "no RBAC guard yet" state) and to the new Identity/Approval endpoints.
+  - Privileged-action step-up reauthentication (`StepUpService`, `POST /auth/reauthenticate`) — required by `identity.role_assignment.manage`, directly addressing the roadmap's "permission escalation attempt" required test.
+  - Generic multi-step Approval Request/Action engine (`ApprovalService`) — not yet wired to a specific business workflow (§8, §12).
+  - Permission Registry (§11) and seed script (`prisma/seed/permissions.seed.ts`) for the 8 permission codes this phase introduces.
+  - Unit tests for `PermissionsService` (deny-overrides-allow, tenant/legal-entity/branch scope covering), `PermissionsGuard` (deny-by-default, permission-escalation-without-step-up denial), `AccessTokenService`, `RefreshTokenService` (rotation/reuse/revocation), and `StepUpService`.
+  - Decision Register #26–#31 record the tenant-resolution supersession, the federated-only auth model (no `password_hash` column exists — Decision #27), token content, refresh-token storage, and signing library choices.
+
 ### Added — 2026-07-30 (Phase 02 — Platform Core)
 
 - `apps/api` — Platform Core domain implementation, following `docs/09-Implementation/24-CODEX-IMPLEMENTATION-ROADMAP.md`'s Platform Core scope and `docs/06-Data/18-ENTERPRISE-DATABASE-DICTIONARY.md` §6–§7, §18–§19, §21:
