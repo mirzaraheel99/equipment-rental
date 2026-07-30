@@ -18,6 +18,34 @@
   --color-info-500: #2563eb;
 
   --font-sans: 'Inter', 'IBM Plex Sans Arabic', ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* Radius, shadow, z-index, and motion tokens — docs/08-UX/21-UI-DESIGN-
+   * SYSTEM-AND-INTERACTION-STANDARDS.md §35. Spacing/breakpoint scales use
+   * Tailwind v4's own defaults, which already match doc 21 §6/§7. */
+  --radius-erms-sm: 0.25rem;
+  --radius-erms-md: 0.5rem;
+  --radius-erms-lg: 0.75rem;
+  --radius-erms-full: 9999px;
+
+  --shadow-erms-sm: 0 1px 2px 0 rgb(0 0 0 / 0.06);
+  --shadow-erms-md: 0 4px 12px -2px rgb(0 0 0 / 0.1);
+  --shadow-erms-lg: 0 12px 32px -8px rgb(0 0 0 / 0.18);
+
+  --ease-erms-standard: cubic-bezier(0.2, 0, 0, 1);
+  --duration-erms-fast: 120ms;
+  --duration-erms-normal: 200ms;
+}
+
+/* z-index scale — kept outside @theme since z-index isn't a Tailwind v4
+ * theme namespace; consumed via arbitrary values, e.g. z-[var(--z-erms-modal)]. */
+:root {
+  --z-erms-dropdown: 30;
+  --z-erms-sticky: 40;
+  --z-erms-drawer: 50;
+  --z-erms-modal: 50;
+  --z-erms-popover: 60;
+  --z-erms-toast: 70;
+  --z-erms-command-palette: 80;
 }
 
 /*
@@ -48,4 +76,17 @@
     --erms-border: 51 65 85;
     --erms-muted: 148 163 184;
   }
+}
+
+/* Density modes (doc 21 §5) — set via DensityProvider's `data-density`
+ * attribute; components read `--erms-row-py` for vertical row padding. */
+:root,
+:root[data-density='compact'] {
+  --erms-row-py: 0.5rem;
+}
+:root[data-density='comfortable'] {
+  --erms-row-py: 0.75rem;
+}
+:root[data-density='dense'] {
+  --erms-row-py: 0.25rem;
 }

@@ -5,7 +5,7 @@ import { cn } from '../lib/cn';
 
 export const Label = forwardRef<
   ElementRef<typeof RadixLabel.Root>,
-  ComponentPropsWithoutRef<typeof RadixLabel.Root> & { required?: boolean }
+  ComponentPropsWithoutRef<typeof RadixLabel.Root> & { required?: boolean | undefined }
 >(({ className, required, children, ...props }, ref) => (
   <RadixLabel.Root
     ref={ref}

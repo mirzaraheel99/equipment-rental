@@ -1,5 +1,6 @@
 import {
   Checkbox,
+  FormField,
   Input,
   Label,
   RadioGroup,
@@ -16,6 +17,26 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta: Meta = { title: 'Foundation/Form Controls' };
 export default meta;
+
+export const FormFieldDefault: StoryObj = {
+  render: () => (
+    <div style={{ maxWidth: 320 }}>
+      <FormField htmlFor="story-field" label="Asset name" required hint="As it appears on the rental contract.">
+        <Input id="story-field" placeholder="Bobcat S650" />
+      </FormField>
+    </div>
+  ),
+};
+
+export const FormFieldWithError: StoryObj = {
+  render: () => (
+    <div style={{ maxWidth: 320 }}>
+      <FormField htmlFor="story-field-error" label="Asset name" required error="Asset name is required.">
+        <Input id="story-field-error" aria-invalid aria-describedby="story-field-error-error" />
+      </FormField>
+    </div>
+  ),
+};
 
 export const TextInput: StoryObj = {
   render: () => (

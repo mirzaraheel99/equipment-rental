@@ -33,7 +33,8 @@ These need a decision before the corresponding phase can be considered done, per
 | B19 | Confirmed payment gateway(s) actually contracted (Moyasar/HyperPay/PayTabs/Stripe) | SRS REQ-INT-003; Assumptions Register A6 | Phase 15, Phase 18 |
 | B20 | Product Strategy, Product Scope, and Product Module Map documents do not exist yet, even though the Customer domain doc (06) lists them as dependencies | Gap identified during this planning pass | Formally blocks nothing in the hybrid path (working assumption: CLAUDE.md + market research doc serve as informal substitutes), but should be written before Phase 00 is considered closed |
 | B21 | Real Microsoft Entra ID tenant ID, app registration client ID, and redirect URI are not yet available; `EntraIdProvider` is real, functional OIDC/JWKS verification code but cannot be exercised end-to-end without them | Auth domain (03) §12 | Blocking-for-production, not Blocking-for-MVP — local dev identity provider unblocks continued build work in the meantime |
-| B22 | Login's tenant disambiguation (a user's email may exist in more than one tenant) has no screen defined in the Screen Registry (doc 20) | Auth domain (03) §13 | Phase 04 (Design System and Application Shell) |
+| B22 | Login's tenant disambiguation screen | Auth domain (03) §13 | **Partially resolved** — Phase 04 built a local-dev-only login page (`apps/web/app/login`) that takes an explicit tenant ID; a real multi-tenant candidate-picker UI (consuming the `tenant_selection_required` API response) is still not built, tracked as D31 |
+| B23 | Session storage uses `localStorage`, not httpOnly cookies — an accepted tradeoff (Decision Register #34/#35), but XSS on any page becomes session theft. A cookie-based flow needs a Next.js Route Handler proxying `/auth/*` to set/read httpOnly cookies, not yet built | Decision Register #34 | Blocking-for-production, not Blocking-for-MVP |
 
 ## Deferred (not blocking the MVP vertical slice)
 
@@ -69,6 +70,10 @@ These need a decision before the corresponding phase can be considered done, per
 | D28 | MFA factor enrollment and verification (TOTP/SMS/authenticator push) — only the policy hook exists | Auth domain (03) §12 |
 | D29 | Customer Portal's own authentication surface, scope model, and rate limiting | Auth domain (03) §12; Customer Portal Domain gap |
 | D30 | `approval_request.context_snapshot_json` exact shape per consuming workflow — no business domain calls the approval engine yet | Auth domain (03) §12 |
+| D31 | Real multi-tenant login candidate picker (consuming `POST /auth/session`'s `tenant_selection_required` response) and a real Entra ID redirect screen — the local-dev login page (Phase 04) only takes a raw tenant ID | UI design system (21); Auth domain (03) §13; B21, B22 |
+| D32 | DataTable column resize, reorder, pinning, and row virtualization (doc 21 §12.1/§12.5) — the Phase 04 foundation covers search-adjacent sorting, pagination, density, and loading/empty/error states only | UI design system (21) §12 |
+| D33 | Command palette's real command registry (global search across assets/customers/contracts/etc., recent records, permission-filtered role-scoped commands) — Phase 04 built the palette shell itself, wired to a caller-supplied item list only | UI design system (21) §18, §19 |
+| D34 | Notification Center and Approval inbox full screens (read/unread, filter, search, snooze, escalation) — Phase 04 built only the header dropdown shells with caller-supplied data | UI design system (21) §24, §25 |
 
 ---
 

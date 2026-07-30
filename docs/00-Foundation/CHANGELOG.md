@@ -4,6 +4,18 @@ All notable documentation and planning changes to the ERMS repository.
 
 ## [Unreleased]
 
+### Added — 2026-07-30 (Phase 04 — Design System and Application Shell)
+
+Implements `docs/09-Implementation/24-CODEX-IMPLEMENTATION-ROADMAP.md` Phase 04 against the existing `docs/08-UX/21-UI-DESIGN-SYSTEM-AND-INTERACTION-STANDARDS.md` (no new domain doc needed — that spec was already fully written).
+
+- `packages/ui` — design tokens (radius/shadow/z-index/motion, density modes via a new `DensityProvider`) and new shared components: `StatusBadge` (10 categories, icon+text, never color-alone), `FormField`, `EmptyState`, `ErrorState`, `KpiCard`, `Toast`, `Tooltip`, `DropdownMenu`, `DataTable` (search-adjacent sorting/pagination/density/loading/empty/error — column resize/reorder/pinning/virtualization deferred, D32), and `CommandPalette` (Cmd/Ctrl+K, via `cmdk`).
+- `packages/ui/src/shell/` — the application shell: `AppShell`, `GlobalHeader`, `WorkspaceSwitcher`, `ScopeSelector`, `NotificationBell`, `ApprovalBell`, `UserMenu`, and a `useCommandPaletteShortcut` hook. All presentational — no data-fetching baked in; a later phase wires real API data.
+- `packages/auth` — `createBrowserAuthTokenProvider` and the `establishSession`/`establishLocalDevSession`/`refreshStoredSession`/`endSession` helpers, implementing the `AuthTokenProvider` interface Phase 01 defined as an extension point, backed by the Phase 03 auth API and `localStorage` (Decision Register #34/#35, B23).
+- `apps/web` — `/login` (local-dev-only sign-in against `LocalDevProvider`) and the root `/` page rewritten into the authenticated dashboard shell (`useRequireSession` client-side guard, `AppShell`/`GlobalHeader` wired to a real session, KPI placeholders). Verified end-to-end in a real Chromium browser: unauthenticated redirect to `/login`, dashboard render once a session exists, Cmd/Ctrl+K command palette, and the user menu's sign-out — see `apps/web/tests/e2e/smoke.spec.ts`.
+- **Bug found and fixed**: `apps/web` and `apps/customer-portal`'s Tailwind entry points were missing the `@source` directive scanning `packages/ui/src` (only `apps/storybook` had it) — any utility class used only inside a shared component silently produced no CSS in those two apps. Confirmed via a live browser check (Command Palette rendered unstyled/unbounded before the fix) and corrected in both apps (Decision Register #36).
+- Storybook stories for every new component (`Foundation/StatusBadge`, `Foundation/DataTable`, `Foundation/Command and Menus`, `Foundation/App Shell`, plus a `FormField` addition to the existing form-controls stories) — dark mode and RTL come from the existing global Storybook toolbar decorators, so per-story variants only needed to cover default/loading/disabled/error/compact/dense states.
+- `packages/testing`'s shared `vitest-setup.ts` now polyfills `window.matchMedia`, which jsdom doesn't implement — needed by `ThemeProvider` and any future component that queries `prefers-color-scheme`.
+
 ### Added — 2026-07-30 (Phase 03 — Authentication, RBAC, and Governance)
 
 - `docs/04-Domain/03-AUTHENTICATION-AND-ACCESS-GOVERNANCE-DOMAIN-SPECIFICATION.md` — new domain spec (lite pass — see its §12 for explicit deferrals), authored just-in-time per the hybrid build strategy.

@@ -2,6 +2,7 @@ export { DirectionProvider, useDirection } from '@erms/localization';
 
 export * from './lib/cn';
 export * from './theme/theme-provider';
+export * from './theme/density-provider';
 
 export * from './components/button';
 export * from './components/input';
@@ -19,3 +20,22 @@ export * from './components/tabs';
 export * from './components/skeleton';
 export * from './components/spinner';
 export * from './components/page-container';
+export * from './components/tooltip';
+export * from './components/status-badge';
+export * from './components/form-field';
+export * from './components/empty-state';
+export * from './components/error-state';
+export * from './components/kpi-card';
+export * from './components/toast';
+export * from './components/dropdown-menu';
+export * from './components/data-table';
+export * from './components/command-palette';
+
+export * from './shell/app-shell';
+export * from './shell/global-header';
+export * from './shell/workspace-switcher';
+export * from './shell/scope-selector';
+export * from './shell/notification-bell';
+export * from './shell/approval-bell';
+export * from './shell/user-menu';
+export * from './shell/use-command-palette-shortcut';
