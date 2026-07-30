@@ -1,0 +1,6 @@
+{
+  "generic": "Something went wrong. Please try again.",
+  "notFound": "The requested resource was not found.",
+  "unauthorized": "You are not authorized to perform this action.",
+  "network": "Unable to reach the server. Check your connection and try again."
+}

@@ -1,0 +1,20 @@
+// Prisma schema — migration foundation only (Bootstrap Phase 01).
+//
+// Per docs/09-Implementation/25-IMPLEMENTATION-PACK-01-PROJECT-BOOTSTRAP.md
+// §3 ("Out of Scope"): no business database tables belong here yet. This
+// file exists so migration tooling (generate / migrate dev / migrate
+// status / migrate reset) is configured and provably works end-to-end
+// before Phase 02 (Platform Core) adds the first real tables (tenant,
+// legal_entity, branch, ...).
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+// Prisma 7: the connection URL is no longer read from this file at runtime —
+// PrismaClient requires an explicit driver adapter (see src/prisma/prisma.service.ts),
+// and the CLI/migration engine reads its connection from prisma.config.ts instead.
+datasource db {
+  provider = "postgresql"
+}

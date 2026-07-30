@@ -1,0 +1,80 @@
+name: erms
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: erms
+      POSTGRES_PASSWORD: erms_local_dev
+      POSTGRES_DB: erms
+      POSTGRES_INITDB_ARGS: '--encoding=UTF8'
+    ports:
+      - '5432:5432'
+    volumes:
+      - erms_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U erms -d erms']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - erms_redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: erms_local
+      MINIO_ROOT_PASSWORD: erms_local_dev_secret
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - erms_minio_data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 erms_local erms_local_dev_secret &&
+      mc mb -p local/erms-local &&
+      exit 0
+      "
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:8025']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  erms_postgres_data:
+  erms_redis_data:
+  erms_minio_data:

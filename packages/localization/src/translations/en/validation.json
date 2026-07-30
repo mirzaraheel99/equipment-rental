@@ -1,0 +1,6 @@
+{
+  "required": "This field is required.",
+  "invalidFormat": "This value is not in a valid format.",
+  "tooShort": "This value is too short.",
+  "tooLong": "This value is too long."
+}

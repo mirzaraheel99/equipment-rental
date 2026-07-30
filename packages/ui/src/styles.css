@@ -1,0 +1,51 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-brand-50: #eef6ff;
+  --color-brand-100: #d9ebff;
+  --color-brand-200: #bcdcff;
+  --color-brand-300: #8ec5ff;
+  --color-brand-400: #58a4ff;
+  --color-brand-500: #2f80ed;
+  --color-brand-600: #1f63c4;
+  --color-brand-700: #1b4f9e;
+  --color-brand-800: #1a4280;
+  --color-brand-900: #1a396a;
+
+  --color-success-500: #1f9d55;
+  --color-warning-500: #d97706;
+  --color-danger-500: #dc2626;
+  --color-info-500: #2563eb;
+
+  --font-sans: 'Inter', 'IBM Plex Sans Arabic', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/*
+ * Semantic tokens only — brand colors themselves are TBD per
+ * docs/08-UX/21-UI-DESIGN-SYSTEM-AND-INTERACTION-STANDARDS.md ("brand
+ * colors/fonts explicitly TBD"). These CSS variables are the single place
+ * tenant branding (doc 21, "tenant branding must not break accessibility")
+ * and dark mode overrides will hook into later.
+ */
+:root {
+  --erms-bg: 255 255 255;
+  --erms-fg: 15 23 42;
+  --erms-border: 226 232 240;
+  --erms-muted: 100 116 139;
+}
+
+:root[data-theme='dark'] {
+  --erms-bg: 15 23 42;
+  --erms-fg: 241 245 249;
+  --erms-border: 51 65 85;
+  --erms-muted: 148 163 184;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --erms-bg: 15 23 42;
+    --erms-fg: 241 245 249;
+    --erms-border: 51 65 85;
+    --erms-muted: 148 163 184;
+  }
+}

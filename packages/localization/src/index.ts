@@ -1,0 +1,11 @@
+export * from './i18n.js';
+export * from './direction.js';
+export * from './format.js';
+export { default as enCommon } from './translations/en/common.json';
+export { default as enNavigation } from './translations/en/navigation.json';
+export { default as enErrors } from './translations/en/errors.json';
+export { default as enValidation } from './translations/en/validation.json';
+export { default as arCommon } from './translations/ar/common.json';
+export { default as arNavigation } from './translations/ar/navigation.json';
+export { default as arErrors } from './translations/ar/errors.json';
+export { default as arValidation } from './translations/ar/validation.json';

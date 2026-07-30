@@ -1,0 +1,7 @@
+@import 'tailwindcss';
+@import '@erms/ui/styles.css';
+
+body {
+  background-color: rgb(var(--erms-bg));
+  color: rgb(var(--erms-fg));
+}
