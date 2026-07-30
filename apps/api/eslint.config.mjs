@@ -21,4 +21,13 @@ export default [
       'no-restricted-syntax': 'off',
     },
   },
+  {
+    files: ['src/tenant/tenant-scoped-prisma.extension.ts'],
+    rules: {
+      // Prisma's $allOperations extension hook is necessarily typed `any`
+      // across all models/operations — see the file's own comment.
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+    },
+  },
 ];

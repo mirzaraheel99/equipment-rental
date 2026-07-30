@@ -1,10 +1,25 @@
 # Changelog
 
-All notable documentation and planning changes to the ERMS repository. This repository has no application code yet — entries below are documentation-only until noted otherwise.
+All notable documentation and planning changes to the ERMS repository.
 
 ## [Unreleased]
 
-### Added — 2026-07-30
+### Added — 2026-07-30 (Phase 02 — Platform Core)
+
+- `apps/api` — Platform Core domain implementation, following `docs/09-Implementation/24-CODEX-IMPLEMENTATION-ROADMAP.md`'s Platform Core scope and `docs/06-Data/18-ENTERPRISE-DATABASE-DICTIONARY.md` §6–§7, §18–§19, §21:
+  - Prisma schema + hand-verified migration for `Tenant`, `TenantSetting`, `LegalEntity`, `Branch`, `Department`, `AuditEvent`, `DomainEvent`, `OutboxMessage`, `BackgroundJobExecution`, `Document`, `DocumentVersion`, `DocumentAccessLog`, `Notification`.
+  - Tenant isolation: `AsyncLocalStorage`-based tenant context, interim `x-tenant-id` header resolution (see Decision Register #24 — replaced by auth-derived scope in Phase 03), and a Prisma Client Extension that structurally enforces tenant scope on every query for all tenant-scoped models.
+  - Append-only audit logging (`AuditService`) and transactional-outbox domain events (`DomainEventService`), used by every Platform Core mutation.
+  - Full CRUD for Legal Entity, Branch, Department, including circular-hierarchy prevention for Department parenting.
+  - Documents and Notifications: Prisma models only — service/controller layer deferred to a later pass.
+  - No RBAC guard yet on these endpoints — tracked as a Phase 03 dependency, not a Phase 02 gap.
+
+### Added — 2026-07-30 (Phase 01 — Project Bootstrap)
+
+- Monorepo scaffold (`docs/09-Implementation/25-IMPLEMENTATION-PACK-01-PROJECT-BOOTSTRAP.md`): pnpm workspaces + Turborepo, `apps/web`, `apps/api`, `apps/worker`, `apps/customer-portal`, `apps/storybook`, and 10 shared `packages/*`. No business-domain code, per that pack's explicit out-of-scope boundary.
+- Decision Register entries #1–#22 (Bootstrap technical decisions) recorded against Implementation Pack 01 §33.
+
+### Added — 2026-07-30 (Phase 00-lite)
 
 - `docs/00-Foundation/` — new Phase-00-lite governance set:
   - `MASTER-INDEX.md` — full document inventory and status

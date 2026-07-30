@@ -1,11 +1,22 @@
-// Prisma schema — migration foundation only (Bootstrap Phase 01).
+// Prisma schema — Phase 02 (Platform Core).
 //
-// Per docs/09-Implementation/25-IMPLEMENTATION-PACK-01-PROJECT-BOOTSTRAP.md
-// §3 ("Out of Scope"): no business database tables belong here yet. This
-// file exists so migration tooling (generate / migrate dev / migrate
-// status / migrate reset) is configured and provably works end-to-end
-// before Phase 02 (Platform Core) adds the first real tables (tenant,
-// legal_entity, branch, ...).
+// Tables below implement docs/06-Data/18-ENTERPRISE-DATABASE-DICTIONARY.md
+// §6 (Platform and Organization), §7.8 (audit_event), §18 (Document), §19.1
+// (notification), and §21 (Event and Job Tables) — the tenant/org/audit/
+// event/document/notification foundation every later business domain
+// depends on, per docs/09-Implementation/24-CODEX-IMPLEMENTATION-ROADMAP.md
+// Phase 02. Identity/RBAC tables (§7.1–7.7) belong to Phase 03 and are not
+// added here. Business-domain tables (customer, asset, contract, ...)
+// remain out of scope until their own phase.
+//
+// Naming: DB columns stay snake_case (via @map/@@map) per the dictionary's
+// §3 naming standard; Prisma model/field names use idiomatic PascalCase/
+// camelCase. Primary keys are UUID v7 (dictionary §3.3 preference) using
+// PostgreSQL's gen_random_uuid()-based v7 generation is not yet built into
+// core Postgres, so v7 values are generated application-side; the column
+// itself is a plain uuid with no DB-side default (see @erms/domain-kernel's
+// id generator once the shared kernel package exists — tracked as an open
+// item, see Decision Register).
 
 generator client {
   provider = "prisma-client-js"
@@ -17,4 +28,358 @@ generator client {
 // and the CLI/migration engine reads its connection from prisma.config.ts instead.
 datasource db {
   provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// 6. Platform and Organization Tables
+// ---------------------------------------------------------------------------
+
+/// One SaaS customer environment. docs/06-Data/18-ENTERPRISE-DATABASE-DICTIONARY.md §6.1
+model Tenant {
+  id                   String   @id @db.Uuid
+  tenantCode           String   @unique @map("tenant_code") @db.VarChar(50)
+  nameEn               String   @map("name_en") @db.VarChar(200)
+  nameAr               String?  @map("name_ar") @db.VarChar(200)
+  /// shared | dedicated | government | sandbox | demo
+  tenantType           String   @map("tenant_type") @db.VarChar(40)
+  /// pending | active | suspended | archived
+  status               String   @db.VarChar(30)
+  defaultCountryCode   String   @map("default_country_code") @db.Char(2)
+  defaultCurrencyCode  String   @map("default_currency_code") @db.Char(3)
+  defaultLanguageCode  String   @map("default_language_code") @db.VarChar(10)
+  defaultTimezone      String   @map("default_timezone") @db.VarChar(100)
+  dataResidencyRegion  String?  @map("data_residency_region") @db.VarChar(100)
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  settings        TenantSetting[]
+  legalEntities   LegalEntity[]
+  branches        Branch[]
+  departments     Department[]
+  auditEvents     AuditEvent[]
+  domainEvents    DomainEvent[]
+  outboxMessages  OutboxMessage[]
+  jobExecutions   BackgroundJobExecution[]
+  documents       Document[]
+  documentVersions DocumentVersion[]
+  documentAccessLogs DocumentAccessLog[]
+  notifications   Notification[]
+
+  @@index([status], map: "idx_tenant_status")
+  @@map("tenant")
+}
+
+/// Controlled tenant configuration. §6.2
+model TenantSetting {
+  id                String    @id @db.Uuid
+  tenantId          String    @map("tenant_id") @db.Uuid
+  settingKey        String    @map("setting_key") @db.VarChar(150)
+  settingValueJson  Json      @map("setting_value_json")
+  effectiveFrom     DateTime  @map("effective_from") @db.Timestamptz(3)
+  effectiveTo       DateTime? @map("effective_to") @db.Timestamptz(3)
+  version           Int
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String?   @map("created_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, settingKey, version])
+  @@map("tenant_setting")
+}
+
+/// The tenant's registered companies. §6.3
+model LegalEntity {
+  id                             String   @id @db.Uuid
+  tenantId                       String   @map("tenant_id") @db.Uuid
+  legalEntityCode                String   @map("legal_entity_code") @db.VarChar(50)
+  legalNameEn                    String   @map("legal_name_en") @db.VarChar(300)
+  legalNameAr                    String?  @map("legal_name_ar") @db.VarChar(300)
+  tradeNameEn                    String?  @map("trade_name_en") @db.VarChar(300)
+  tradeNameAr                    String?  @map("trade_name_ar") @db.VarChar(300)
+  countryCode                    String   @map("country_code") @db.Char(2)
+  commercialRegistrationNumber   String?  @map("commercial_registration_number") @db.VarChar(50)
+  vatRegistrationNumber          String?  @map("vat_registration_number") @db.VarChar(50)
+  nationalAddressJson            Json?    @map("national_address_json")
+  invoiceLanguage                String   @map("invoice_language") @db.VarChar(10)
+  baseCurrencyCode               String   @map("base_currency_code") @db.Char(3)
+  /// pending | active | suspended | archived
+  status                         String   @db.VarChar(30)
+  createdAt                      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy                      String?  @map("created_by") @db.Uuid
+  updatedAt                      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy                      String?  @map("updated_by") @db.Uuid
+  rowVersion                     Int      @default(1) @map("row_version")
+  isActive                       Boolean  @default(true) @map("is_active")
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  branches    Branch[]
+  departments Department[]
+
+  @@unique([tenantId, legalEntityCode])
+  @@unique([tenantId, countryCode, commercialRegistrationNumber])
+  @@map("legal_entity")
+}
+
+/// §6.4. Branch types: rental_counter | yard | workshop | warehouse | office | mixed
+model Branch {
+  id            String   @id @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  legalEntityId String   @map("legal_entity_id") @db.Uuid
+  branchCode    String   @map("branch_code") @db.VarChar(50)
+  nameEn        String   @map("name_en") @db.VarChar(200)
+  nameAr        String?  @map("name_ar") @db.VarChar(200)
+  branchType    String   @map("branch_type") @db.VarChar(30)
+  regionId      String?  @map("region_id") @db.Uuid
+  cityId        String?  @map("city_id") @db.Uuid
+  addressJson   Json?    @map("address_json")
+  timezone      String   @db.VarChar(100)
+  /// pending | active | suspended | archived
+  status        String   @db.VarChar(30)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String?  @map("created_by") @db.Uuid
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String?  @map("updated_by") @db.Uuid
+  rowVersion    Int      @default(1) @map("row_version")
+  isActive      Boolean  @default(true) @map("is_active")
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  legalEntity LegalEntity  @relation(fields: [legalEntityId], references: [id])
+  departments Department[]
+
+  @@unique([tenantId, branchCode])
+  @@map("branch")
+}
+
+/// §6.5. Circular parent relationships are prohibited (enforced in service layer).
+model Department {
+  id                 String   @id @db.Uuid
+  tenantId           String   @map("tenant_id") @db.Uuid
+  legalEntityId      String   @map("legal_entity_id") @db.Uuid
+  branchId           String?  @map("branch_id") @db.Uuid
+  parentDepartmentId String?  @map("parent_department_id") @db.Uuid
+  departmentCode     String   @map("department_code") @db.VarChar(50)
+  nameEn             String   @map("name_en") @db.VarChar(200)
+  nameAr             String?  @map("name_ar") @db.VarChar(200)
+  /// pending | active | suspended | archived
+  status             String   @db.VarChar(30)
+
+  tenant           Tenant       @relation(fields: [tenantId], references: [id])
+  legalEntity      LegalEntity  @relation(fields: [legalEntityId], references: [id])
+  branch           Branch?      @relation(fields: [branchId], references: [id])
+  parentDepartment Department?  @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [id])
+  childDepartments Department[] @relation("DepartmentHierarchy")
+
+  @@unique([tenantId, departmentCode])
+  @@map("department")
+}
+
+// ---------------------------------------------------------------------------
+// 7.8 Audit (Identity/RBAC tables §7.1-7.7 are Phase 03 — not added here)
+// ---------------------------------------------------------------------------
+
+/// Append-only. §7.8. Never updated or deleted after insert — enforced by
+/// AuditService only ever calling `create`, never `update`/`delete`.
+model AuditEvent {
+  id                  String   @id @db.Uuid
+  tenantId            String   @map("tenant_id") @db.Uuid
+  occurredAt          DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  actorUserId         String?  @map("actor_user_id") @db.Uuid
+  /// user | system | integration
+  actorType           String   @map("actor_type") @db.VarChar(20)
+  actionCode          String   @map("action_code") @db.VarChar(100)
+  domainCode          String   @map("domain_code") @db.VarChar(60)
+  entityType          String   @map("entity_type") @db.VarChar(100)
+  entityId            String   @map("entity_id") @db.Uuid
+  previousValuesJson  Json?    @map("previous_values_json")
+  newValuesJson       Json?    @map("new_values_json")
+  reason              String?  @db.VarChar(1000)
+  approvalRequestId   String?  @map("approval_request_id") @db.Uuid
+  correlationId       String?  @map("correlation_id") @db.Uuid
+  requestId           String?  @map("request_id") @db.Uuid
+  ipAddress           String?  @map("ip_address") @db.VarChar(64)
+  userAgent           String?  @map("user_agent") @db.VarChar(500)
+  sourceSystem        String?  @map("source_system") @db.VarChar(60)
+  integrityHash       String?  @map("integrity_hash") @db.VarChar(128)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, occurredAt(sort: Desc)], map: "idx_audit_event_tenant_occurred")
+  @@index([tenantId, entityType, entityId, occurredAt], map: "idx_audit_event_entity")
+  @@index([tenantId, actorUserId, occurredAt], map: "idx_audit_event_actor")
+  @@map("audit_event")
+}
+
+// ---------------------------------------------------------------------------
+// 21. Event and Job Tables
+// ---------------------------------------------------------------------------
+
+/// Append-only. §21.1
+model DomainEvent {
+  id            String    @id @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  eventType     String    @map("event_type") @db.VarChar(150)
+  eventVersion  Int       @map("event_version")
+  aggregateType String    @map("aggregate_type") @db.VarChar(100)
+  aggregateId   String    @map("aggregate_id") @db.Uuid
+  payloadJson   Json      @map("payload_json")
+  occurredAt    DateTime  @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(3)
+  correlationId String?   @map("correlation_id") @db.Uuid
+  causationId   String?   @map("causation_id") @db.Uuid
+  /// pending | published | failed
+  status        String    @db.VarChar(20)
+
+  tenant  Tenant          @relation(fields: [tenantId], references: [id])
+  outbox  OutboxMessage[]
+
+  @@index([tenantId, status, occurredAt], map: "idx_domain_event_tenant_status")
+  @@map("domain_event")
+}
+
+/// Transactional outbox — written in the same DB transaction as the domain
+/// change that raised the event, published asynchronously by the worker.
+/// §21.2
+model OutboxMessage {
+  id             String    @id @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  eventId        String    @map("event_id") @db.Uuid
+  payloadJson    Json      @map("payload_json")
+  /// pending | processing | published | dead_letter
+  status         String    @db.VarChar(20)
+  attemptCount   Int       @default(0) @map("attempt_count")
+  nextAttemptAt  DateTime? @map("next_attempt_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt    DateTime? @map("published_at") @db.Timestamptz(3)
+
+  tenant Tenant      @relation(fields: [tenantId], references: [id])
+  event  DomainEvent @relation(fields: [eventId], references: [id])
+
+  @@index([tenantId, status, nextAttemptAt], map: "idx_outbox_message_dispatch")
+  @@map("outbox_message")
+}
+
+/// §21.3
+model BackgroundJobExecution {
+  id            String    @id @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  jobType       String    @map("job_type") @db.VarChar(100)
+  jobKey        String    @map("job_key") @db.VarChar(200)
+  /// queued | running | succeeded | failed
+  status        String    @db.VarChar(20)
+  startedAt     DateTime? @map("started_at") @db.Timestamptz(3)
+  completedAt   DateTime? @map("completed_at") @db.Timestamptz(3)
+  attemptCount  Int       @default(0) @map("attempt_count")
+  errorSummary  String?   @map("error_summary") @db.VarChar(2000)
+  correlationId String?   @map("correlation_id") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, jobType, status], map: "idx_background_job_tenant_type_status")
+  @@map("background_job_execution")
+}
+
+// ---------------------------------------------------------------------------
+// 18. Document Tables
+// ---------------------------------------------------------------------------
+
+/// §18.1
+model Document {
+  id                   String   @id @db.Uuid
+  tenantId             String   @map("tenant_id") @db.Uuid
+  documentTypeCode     String   @map("document_type_code") @db.VarChar(60)
+  ownerDomain          String   @map("owner_domain") @db.VarChar(60)
+  ownerEntityType      String   @map("owner_entity_type") @db.VarChar(100)
+  ownerEntityId        String   @map("owner_entity_id") @db.Uuid
+  currentVersionId     String?  @map("current_version_id") @db.Uuid
+  /// internal | confidential | restricted
+  confidentialityLevel String   @map("confidentiality_level") @db.VarChar(20)
+  retentionCategory    String   @map("retention_category") @db.VarChar(60)
+  /// active | superseded | archived
+  status               String   @db.VarChar(20)
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy            String?  @map("created_by") @db.Uuid
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id])
+  versions    DocumentVersion[]  @relation("DocumentVersions")
+  accessLogs  DocumentAccessLog[]
+
+  @@index([tenantId, ownerDomain, ownerEntityType, ownerEntityId], map: "idx_document_owner")
+  @@map("document")
+}
+
+/// Immutable — a new upload always creates a new version, never overwrites
+/// one. §18.2
+model DocumentVersion {
+  id                     String    @id @db.Uuid
+  tenantId               String    @map("tenant_id") @db.Uuid
+  documentId             String    @map("document_id") @db.Uuid
+  versionNumber          Int       @map("version_number")
+  storageKey             String    @map("storage_key") @db.VarChar(500)
+  originalFileName       String    @map("original_file_name") @db.VarChar(300)
+  contentType            String    @map("content_type") @db.VarChar(150)
+  fileSizeBytes          BigInt    @map("file_size_bytes")
+  sha256Hash             String    @map("sha256_hash") @db.VarChar(64)
+  encryptionKeyReference String?   @map("encryption_key_reference") @db.VarChar(200)
+  /// pending | clean | infected | scan_failed
+  malwareScanStatus      String    @map("malware_scan_status") @db.VarChar(20)
+  uploadedAt             DateTime  @default(now()) @map("uploaded_at") @db.Timestamptz(3)
+  uploadedBy             String?   @map("uploaded_by") @db.Uuid
+
+  tenant       Tenant               @relation(fields: [tenantId], references: [id])
+  document     Document             @relation("DocumentVersions", fields: [documentId], references: [id])
+  accessLogs   DocumentAccessLog[]
+
+  @@unique([tenantId, documentId, versionNumber])
+  @@map("document_version")
+}
+
+/// Append-only. §18.3
+model DocumentAccessLog {
+  id                String   @id @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  documentId        String   @map("document_id") @db.Uuid
+  documentVersionId String?  @map("document_version_id") @db.Uuid
+  userId            String?  @map("user_id") @db.Uuid
+  /// view | download | upload | delete_request
+  actionCode        String   @map("action_code") @db.VarChar(30)
+  occurredAt        DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  ipAddress         String?  @map("ip_address") @db.VarChar(64)
+  correlationId     String?  @map("correlation_id") @db.Uuid
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  document        Document         @relation(fields: [documentId], references: [id])
+  documentVersion DocumentVersion? @relation(fields: [documentVersionId], references: [id])
+
+  @@index([tenantId, documentId, occurredAt], map: "idx_document_access_log_document")
+  @@map("document_access_log")
+}
+
+// ---------------------------------------------------------------------------
+// 19.1 Notification (19.2/19.3 integration tables are Phase 18 — not added here)
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id             String    @id @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  /// user | customer_contact | portal_user
+  recipientType  String    @map("recipient_type") @db.VarChar(30)
+  recipientId    String    @map("recipient_id") @db.Uuid
+  templateCode   String    @map("template_code") @db.VarChar(100)
+  /// email | sms | whatsapp | in_app
+  channel        String    @db.VarChar(20)
+  languageCode   String    @map("language_code") @db.VarChar(10)
+  subject        String?   @db.VarChar(300)
+  body           String
+  /// pending | sent | failed | cancelled
+  status         String    @db.VarChar(20)
+  scheduledAt    DateTime? @map("scheduled_at") @db.Timestamptz(3)
+  sentAt         DateTime? @map("sent_at") @db.Timestamptz(3)
+  failureReason  String?   @map("failure_reason") @db.VarChar(1000)
+  sourceDomain   String?   @map("source_domain") @db.VarChar(60)
+  sourceEntityId String?   @map("source_entity_id") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, status, scheduledAt], map: "idx_notification_dispatch")
+  @@map("notification")
 }
