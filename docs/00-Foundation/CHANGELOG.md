@@ -4,6 +4,20 @@ All notable documentation and planning changes to the ERMS repository.
 
 ## [Unreleased]
 
+### Added — 2026-07-31 (Phase 05 — Asset Registry Foundation)
+
+Implements `docs/09-Implementation/24-CODEX-IMPLEMENTATION-ROADMAP.md` Phase 05 against `docs/04-Domain/05-ASSET-REGISTRY-DOMAIN-SPECIFICATION.md` — the first real business domain, enforcing "the Golden Rule": every asset has exactly one authoritative status and location at any time, writable only through a controlled, optimistically-concurrent transition service.
+
+- `apps/api/prisma/schema.prisma` — 10 new tables: `AssetCategory`, `Manufacturer`, `EquipmentModel`, `Asset`, `AssetStatusHistory`, `AssetLocation` (shared dimension table, Decision Register #39), `AssetLocationHistory`, `AssetMeter`, `AssetMeterReading`, `AssetDocument`. Hand-authored migration (`prisma/migrations/20260730100000_asset_registry/`) with ~17 hand-appended `CHECK` constraints for enum-like columns (Prisma 7 has no CHECK DSL, same technique as Phases 02–04).
+- `apps/api/src/asset/` — `AssetModule` with 7 services/controllers: asset category/manufacturer/equipment-model master data CRUD, `AssetLocationService`, and the core `AssetService`/`AssetMeterService`/`AssetDocumentService`:
+  - `AssetService.transitionStatus`/`transferLocation` enforce the Golden Rule via optimistic compare-and-swap (`updateMany` keyed on `rowVersion`, `count === 0` ⇒ lost race ⇒ `ConflictException`), against a hand-authored 13-state transition matrix (`asset-status.ts`, **not yet stakeholder-confirmed** — Open Questions Register B24).
+  - `AssetMeterService.recordReading` — meter rollback protection: a reading lower than the current value is stored with `qualityStatus: 'anomaly'` and never applied to the meter's counters (domain doc §9).
+  - `AssetDocumentService.findValidCertificates` — certificate expiry computed at read time (`expiryDate >= now()` or null), never manually flagged.
+  - All mutating endpoints enforce tenant isolation (existing Prisma extension, 10 new model names added), RBAC (12 new permissions seeded, including a reserved but not-yet-implemented `asset.status.override`), and audit logging.
+- Tests: `asset-status.test.ts`, `asset.service.test.ts`, `asset-meter.service.test.ts`, `asset-document.service.test.ts`, `dto/asset-category.dto.test.ts` — cover duplicate serial/code rejection, invalid status transition, stale row version (cross-module lock simulation), meter rollback, expired certificate visibility, and Arabic asset fields, per the roadmap's required test list.
+- **Bug found and fixed**: `apps/api/jest.config.js`'s `transformIgnorePatterns` needed correcting twice before it actually excluded `uuid@14`'s ESM-only build from Jest's default node_modules-ignore rule — a naive `(?!.*/uuid/)` lookahead still matched at the *inner* `node_modules/uuid/` segment of pnpm's nested store path, leaving the file untransformed. Fixed by keying the exclusion off the `.pnpm/uuid@` store-directory segment instead (Decision Register #42).
+- Known gaps carried into the Open Questions Register: the transition matrix needs sign-off (B24); `ResourceScopeFrom`'s synchronous resolver can't ABAC-scope asset update/status-transition/location-transfer endpoints (B25, Decision Register #41); `asset.status.override` has no actual bypass logic yet (D35); `AssetDocumentService.link()` can't be exercised end-to-end until Platform Core's Document upload API exists (D36).
+
 ### Added — 2026-07-30 (Phase 04 — Design System and Application Shell)
 
 Implements `docs/09-Implementation/24-CODEX-IMPLEMENTATION-ROADMAP.md` Phase 04 against the existing `docs/08-UX/21-UI-DESIGN-SYSTEM-AND-INTERACTION-STANDARDS.md` (no new domain doc needed — that spec was already fully written).

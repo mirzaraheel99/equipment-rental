@@ -35,6 +35,8 @@ These need a decision before the corresponding phase can be considered done, per
 | B21 | Real Microsoft Entra ID tenant ID, app registration client ID, and redirect URI are not yet available; `EntraIdProvider` is real, functional OIDC/JWKS verification code but cannot be exercised end-to-end without them | Auth domain (03) §12 | Blocking-for-production, not Blocking-for-MVP — local dev identity provider unblocks continued build work in the meantime |
 | B22 | Login's tenant disambiguation screen | Auth domain (03) §13 | **Partially resolved** — Phase 04 built a local-dev-only login page (`apps/web/app/login`) that takes an explicit tenant ID; a real multi-tenant candidate-picker UI (consuming the `tenant_selection_required` API response) is still not built, tracked as D31 |
 | B23 | Session storage uses `localStorage`, not httpOnly cookies — an accepted tradeoff (Decision Register #34/#35), but XSS on any page becomes session theft. A cookie-based flow needs a Next.js Route Handler proxying `/auth/*` to set/read httpOnly cookies, not yet built | Decision Register #34 | Blocking-for-production, not Blocking-for-MVP |
+| B24 | The asset status transition matrix (Decision Register #37) is a hand-authored engineering interpretation of the domain doc's (05) narrative lifecycle description, not an exhaustive stakeholder-approved from→to table | Asset Registry (05) §8/§9; Decision Register #37 | Blocking-for-production, not Blocking-for-MVP — needs sign-off before real operational use |
+| B25 | `ResourceScopeFrom` cannot ABAC-scope Asset update/status-transition/location-transfer endpoints (permission-only today) since its resolver is synchronous and can't look up an existing asset's branch (Decision Register #41) | Asset Registry (05); Decision Register #41 | Blocking-for-production, not Blocking-for-MVP |
 
 ## Deferred (not blocking the MVP vertical slice)
 
@@ -74,6 +76,9 @@ These need a decision before the corresponding phase can be considered done, per
 | D32 | DataTable column resize, reorder, pinning, and row virtualization (doc 21 §12.1/§12.5) — the Phase 04 foundation covers search-adjacent sorting, pagination, density, and loading/empty/error states only | UI design system (21) §12 |
 | D33 | Command palette's real command registry (global search across assets/customers/contracts/etc., recent records, permission-filtered role-scoped commands) — Phase 04 built the palette shell itself, wired to a caller-supplied item list only | UI design system (21) §18, §19 |
 | D34 | Notification Center and Approval inbox full screens (read/unread, filter, search, snooze, escalation) — Phase 04 built only the header dropdown shells with caller-supplied data | UI design system (21) §24, §25 |
+| D35 | `asset.status.override` permission exists (Phase 05 seed data, `isPrivileged: true`) but has no actual bypass endpoint or logic — reserved for a future override workflow that skips the transition matrix under privileged approval | Asset Registry (05); Decision Register #37 |
+| D36 | `AssetDocumentService.link()` requires an existing `documentVersionId` — it does not perform file upload itself, since Platform Core's Document upload API (Phase 02 deferral) still does not exist. The asset-document flow cannot be exercised end-to-end (upload → link → verify) until that gap closes | Platform Core (Phase 02); Asset Registry (05) |
+| D37 | Confirmed structured reference data for GCC-specific equipment certification bodies (partially overlaps B17) — Phase 05 modeled `AssetDocument.documentTypeCode` as a free-form string rather than a fixed controlled-vocabulary/reference table, pending that confirmation | Asset Registry (05) §21.4 |
 
 ---
 

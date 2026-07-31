@@ -29,6 +29,16 @@ const TENANT_SCOPED_MODELS = new Set([
   'UserRoleAssignment',
   'ApprovalRequest',
   'ApprovalAction',
+  'AssetCategory',
+  'Manufacturer',
+  'EquipmentModel',
+  'Asset',
+  'AssetStatusHistory',
+  'AssetLocation',
+  'AssetLocationHistory',
+  'AssetMeter',
+  'AssetMeterReading',
+  'AssetDocument',
 ]);
 
 const WHERE_SCOPED_OPERATIONS = new Set([

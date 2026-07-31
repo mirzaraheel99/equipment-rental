@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module, RequestMethod, type NestModule } from '@nes
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 
 import { ApprovalModule } from '../approval/approval.module.js';
+import { AssetModule } from '../asset/asset.module.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { AuthMiddleware } from '../auth/auth.middleware.js';
 import { AuthModule } from '../auth/auth.module.js';
@@ -30,6 +31,7 @@ import { TenantModule } from '../tenant/tenant.module.js';
     IdentityModule,
     ApprovalModule,
     OrganizationModule,
+    AssetModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

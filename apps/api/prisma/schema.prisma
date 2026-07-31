@@ -52,24 +52,34 @@ model Tenant {
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  settings            TenantSetting[]
-  legalEntities       LegalEntity[]
-  branches            Branch[]
-  departments         Department[]
-  auditEvents         AuditEvent[]
-  domainEvents        DomainEvent[]
-  outboxMessages      OutboxMessage[]
-  jobExecutions       BackgroundJobExecution[]
-  documents           Document[]
-  documentVersions    DocumentVersion[]
-  documentAccessLogs  DocumentAccessLog[]
-  notifications       Notification[]
-  userAccounts        UserAccount[]
-  roles               Role[]
-  rolePermissions     RolePermission[]
-  userRoleAssignments UserRoleAssignment[]
-  approvalRequests    ApprovalRequest[]
-  approvalActions     ApprovalAction[]
+  settings             TenantSetting[]
+  legalEntities        LegalEntity[]
+  branches             Branch[]
+  departments          Department[]
+  auditEvents          AuditEvent[]
+  domainEvents         DomainEvent[]
+  outboxMessages       OutboxMessage[]
+  jobExecutions        BackgroundJobExecution[]
+  documents            Document[]
+  documentVersions     DocumentVersion[]
+  documentAccessLogs   DocumentAccessLog[]
+  notifications        Notification[]
+  userAccounts         UserAccount[]
+  roles                Role[]
+  rolePermissions      RolePermission[]
+  userRoleAssignments  UserRoleAssignment[]
+  approvalRequests     ApprovalRequest[]
+  approvalActions      ApprovalAction[]
+  assetCategories      AssetCategory[]
+  manufacturers        Manufacturer[]
+  equipmentModels      EquipmentModel[]
+  assets               Asset[]
+  assetStatusHistory   AssetStatusHistory[]
+  assetLocations       AssetLocation[]
+  assetLocationHistory AssetLocationHistory[]
+  assetMeters          AssetMeter[]
+  assetMeterReadings   AssetMeterReading[]
+  assetDocuments       AssetDocument[]
 
   @@index([status], map: "idx_tenant_status")
   @@map("tenant")
@@ -120,6 +130,7 @@ model LegalEntity {
   tenant      Tenant       @relation(fields: [tenantId], references: [id])
   branches    Branch[]
   departments Department[]
+  assets      Asset[]
 
   @@unique([tenantId, legalEntityCode])
   @@unique([tenantId, countryCode, commercialRegistrationNumber])
@@ -148,10 +159,12 @@ model Branch {
   rowVersion    Int      @default(1) @map("row_version")
   isActive      Boolean  @default(true) @map("is_active")
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id])
-  legalEntity  LegalEntity   @relation(fields: [legalEntityId], references: [id])
-  departments  Department[]
-  primaryUsers UserAccount[]
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  legalEntity    LegalEntity     @relation(fields: [legalEntityId], references: [id])
+  departments    Department[]
+  primaryUsers   UserAccount[]
+  owningAssets   Asset[]
+  assetLocations AssetLocation[]
 
   @@unique([tenantId, branchCode])
   @@map("branch")
@@ -518,9 +531,10 @@ model DocumentVersion {
   uploadedAt             DateTime @default(now()) @map("uploaded_at") @db.Timestamptz(3)
   uploadedBy             String?  @map("uploaded_by") @db.Uuid
 
-  tenant     Tenant              @relation(fields: [tenantId], references: [id])
-  document   Document            @relation("DocumentVersions", fields: [documentId], references: [id])
-  accessLogs DocumentAccessLog[]
+  tenant         Tenant              @relation(fields: [tenantId], references: [id])
+  document       Document            @relation("DocumentVersions", fields: [documentId], references: [id])
+  accessLogs     DocumentAccessLog[]
+  assetDocuments AssetDocument[]
 
   @@unique([tenantId, documentId, versionNumber])
   @@map("document_version")
@@ -575,4 +589,299 @@ model Notification {
 
   @@index([tenantId, status, scheduledAt], map: "idx_notification_dispatch")
   @@map("notification")
+}
+
+// ---------------------------------------------------------------------------
+// 9. Asset Registry Tables (Phase 05 — docs/04-Domain/05-ASSET-REGISTRY-
+// DOMAIN-SPECIFICATION.md, "the Golden Rule": exactly one authoritative
+// status and one authoritative location per asset at any time).
+// ---------------------------------------------------------------------------
+
+/// §9.1
+model AssetCategory {
+  id                  String  @id @db.Uuid
+  tenantId            String  @map("tenant_id") @db.Uuid
+  parentCategoryId    String? @map("parent_category_id") @db.Uuid
+  categoryCode        String  @map("category_code") @db.VarChar(50)
+  nameEn              String  @map("name_en") @db.VarChar(200)
+  nameAr              String? @map("name_ar") @db.VarChar(200)
+  serializedRequired  Boolean @default(true) @map("serialized_required")
+  meterRequired       Boolean @default(false) @map("meter_required")
+  telematicsSupported Boolean @default(false) @map("telematics_supported")
+  operatorRequired    Boolean @default(false) @map("operator_required")
+  transportClassCode  String? @map("transport_class_code") @db.VarChar(50)
+  /// low | medium | high
+  riskClassification  String  @map("risk_classification") @db.VarChar(20)
+  /// active | inactive
+  status              String  @db.VarChar(20)
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  parentCategory  AssetCategory?   @relation("CategoryHierarchy", fields: [parentCategoryId], references: [id])
+  childCategories AssetCategory[]  @relation("CategoryHierarchy")
+  equipmentModels EquipmentModel[]
+  assets          Asset[]
+
+  @@unique([tenantId, categoryCode])
+  @@map("asset_category")
+}
+
+/// §9.2
+model Manufacturer {
+  id               String  @id @db.Uuid
+  tenantId         String  @map("tenant_id") @db.Uuid
+  manufacturerCode String  @map("manufacturer_code") @db.VarChar(50)
+  name             String  @db.VarChar(200)
+  countryCode      String? @map("country_code") @db.Char(2)
+  /// active | inactive
+  status           String  @db.VarChar(20)
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  equipmentModels EquipmentModel[]
+  assets          Asset[]
+
+  @@unique([tenantId, manufacturerCode])
+  @@map("manufacturer")
+}
+
+/// §9.3
+model EquipmentModel {
+  id                        String  @id @db.Uuid
+  tenantId                  String  @map("tenant_id") @db.Uuid
+  manufacturerId            String  @map("manufacturer_id") @db.Uuid
+  assetCategoryId           String  @map("asset_category_id") @db.Uuid
+  modelCode                 String  @map("model_code") @db.VarChar(50)
+  modelName                 String  @map("model_name") @db.VarChar(200)
+  descriptionEn             String? @map("description_en") @db.VarChar(2000)
+  descriptionAr             String? @map("description_ar") @db.VarChar(2000)
+  standardSpecificationJson Json?   @map("standard_specification_json")
+  /// active | inactive
+  status                    String  @db.VarChar(20)
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  manufacturer  Manufacturer  @relation(fields: [manufacturerId], references: [id])
+  assetCategory AssetCategory @relation(fields: [assetCategoryId], references: [id])
+  assets        Asset[]
+
+  @@unique([tenantId, modelCode])
+  @@map("equipment_model")
+}
+
+/// §9.4. The Golden Rule lives here: `currentStatusCode` and
+/// `currentLocationId` are each written only through their controlled
+/// transition service (AssetService.transitionStatus /
+/// AssetLocationService.transferLocation), never a direct field update —
+/// enforced via optimistic concurrency on `rowVersion` (compare-and-swap).
+model Asset {
+  id                   String    @id @db.Uuid
+  tenantId             String    @map("tenant_id") @db.Uuid
+  assetCode            String    @map("asset_code") @db.VarChar(50)
+  serialNumber         String?   @map("serial_number") @db.VarChar(100)
+  manufacturerId       String?   @map("manufacturer_id") @db.Uuid
+  equipmentModelId     String?   @map("equipment_model_id") @db.Uuid
+  assetCategoryId      String    @map("asset_category_id") @db.Uuid
+  /// owned | leased | consigned
+  ownershipType        String    @map("ownership_type") @db.VarChar(20)
+  owningLegalEntityId  String    @map("owning_legal_entity_id") @db.Uuid
+  owningBranchId       String    @map("owning_branch_id") @db.Uuid
+  /// Available | Reserved | Rented | InTransit | InInspection | InService |
+  /// PpmDue | PpmLocked | DamagedUnderClaimReview | MissingLost | ForSale |
+  /// Sold | Decommissioned (domain doc §6.1)
+  currentStatusCode    String    @map("current_status_code") @db.VarChar(40)
+  currentLocationId    String?   @map("current_location_id") @db.Uuid
+  /// internal | customer | employee | vendor
+  currentCustodianType String?   @map("current_custodian_type") @db.VarChar(20)
+  currentCustodianId   String?   @map("current_custodian_id") @db.Uuid
+  purchaseDate         DateTime? @map("purchase_date") @db.Date
+  purchaseCost         Decimal?  @map("purchase_cost") @db.Decimal(19, 4)
+  replacementValue     Decimal?  @map("replacement_value") @db.Decimal(19, 4)
+  bookValue            Decimal?  @map("book_value") @db.Decimal(19, 4)
+  residualValue        Decimal?  @map("residual_value") @db.Decimal(19, 4)
+  /// Finance-owned policy reference only — the registry never computes
+  /// depreciation itself (domain doc §15, CLAUDE.md no-duplication rule).
+  depreciationMethod   String?   @map("depreciation_method") @db.VarChar(40)
+  warrantyStartDate    DateTime? @map("warranty_start_date") @db.Date
+  warrantyEndDate      DateTime? @map("warranty_end_date") @db.Date
+  engineNumber         String?   @map("engine_number") @db.VarChar(100)
+  vin                  String?   @db.VarChar(50)
+  licensePlate         String?   @map("license_plate") @db.VarChar(30)
+  barcode              String?   @db.VarChar(100)
+  qrCode               String?   @map("qr_code") @db.VarChar(100)
+  rfidTag              String?   @map("rfid_tag") @db.VarChar(100)
+  specificationJson    Json?     @map("specification_json")
+  commissionedAt       DateTime? @map("commissioned_at") @db.Timestamptz(3)
+  decommissionedAt     DateTime? @map("decommissioned_at") @db.Timestamptz(3)
+  rowVersion           Int       @default(1) @map("row_version")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy            String?   @map("created_by") @db.Uuid
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy            String?   @map("updated_by") @db.Uuid
+  isActive             Boolean   @default(true) @map("is_active")
+
+  tenant            Tenant                 @relation(fields: [tenantId], references: [id])
+  manufacturer      Manufacturer?          @relation(fields: [manufacturerId], references: [id])
+  equipmentModel    EquipmentModel?        @relation(fields: [equipmentModelId], references: [id])
+  assetCategory     AssetCategory          @relation(fields: [assetCategoryId], references: [id])
+  owningLegalEntity LegalEntity            @relation(fields: [owningLegalEntityId], references: [id])
+  owningBranch      Branch                 @relation(fields: [owningBranchId], references: [id])
+  currentLocation   AssetLocation?         @relation(fields: [currentLocationId], references: [id])
+  statusHistory     AssetStatusHistory[]
+  locationHistory   AssetLocationHistory[]
+  meters            AssetMeter[]
+  documents         AssetDocument[]
+
+  @@unique([tenantId, assetCode])
+  @@unique([tenantId, serialNumber])
+  @@unique([tenantId, barcode])
+  @@unique([tenantId, qrCode])
+  @@index([tenantId, currentStatusCode], map: "idx_asset_tenant_status")
+  @@index([tenantId, owningBranchId], map: "idx_asset_tenant_branch")
+  @@map("asset")
+}
+
+/// §9.5. Append-only.
+model AssetStatusHistory {
+  id                 String   @id @db.Uuid
+  tenantId           String   @map("tenant_id") @db.Uuid
+  assetId            String   @map("asset_id") @db.Uuid
+  previousStatusCode String?  @map("previous_status_code") @db.VarChar(40)
+  newStatusCode      String   @map("new_status_code") @db.VarChar(40)
+  reasonCode         String?  @map("reason_code") @db.VarChar(60)
+  sourceDomain       String   @map("source_domain") @db.VarChar(60)
+  sourceEntityType   String?  @map("source_entity_type") @db.VarChar(100)
+  sourceEntityId     String?  @map("source_entity_id") @db.Uuid
+  changedBy          String?  @map("changed_by") @db.Uuid
+  changedAt          DateTime @default(now()) @map("changed_at") @db.Timestamptz(3)
+  correlationId      String?  @map("correlation_id") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  asset  Asset  @relation(fields: [assetId], references: [id])
+
+  @@index([tenantId, assetId, changedAt], map: "idx_asset_status_history_asset")
+  @@map("asset_status_history")
+}
+
+/// §9.6. A shared location dimension — assets and movements point to rows
+/// here rather than each asset owning free-form location fields.
+model AssetLocation {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  /// branch | yard | jobsite | in_transit | with_customer
+  locationType String   @map("location_type") @db.VarChar(20)
+  branchId     String?  @map("branch_id") @db.Uuid
+  yardId       String?  @map("yard_id") @db.Uuid
+  zoneId       String?  @map("zone_id") @db.Uuid
+  bayCode      String?  @map("bay_code") @db.VarChar(50)
+  projectId    String?  @map("project_id") @db.Uuid
+  jobsiteId    String?  @map("jobsite_id") @db.Uuid
+  latitude     Decimal? @db.Decimal(9, 6)
+  longitude    Decimal? @db.Decimal(9, 6)
+  addressJson  Json?    @map("address_json")
+  /// active | inactive
+  status       String   @db.VarChar(20)
+
+  tenant              Tenant                 @relation(fields: [tenantId], references: [id])
+  branch              Branch?                @relation(fields: [branchId], references: [id])
+  assetsCurrentlyHere Asset[]
+  movementsFrom       AssetLocationHistory[] @relation("MovementFrom")
+  movementsTo         AssetLocationHistory[] @relation("MovementTo")
+
+  @@index([tenantId, locationType], map: "idx_asset_location_tenant_type")
+  @@map("asset_location")
+}
+
+/// §9.7. Append-only.
+model AssetLocationHistory {
+  id                String   @id @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  assetId           String   @map("asset_id") @db.Uuid
+  fromLocationId    String?  @map("from_location_id") @db.Uuid
+  toLocationId      String   @map("to_location_id") @db.Uuid
+  /// transfer | delivery | pickup | return | initial
+  movementType      String   @map("movement_type") @db.VarChar(20)
+  sourceDomain      String   @map("source_domain") @db.VarChar(60)
+  sourceEntityId    String?  @map("source_entity_id") @db.Uuid
+  movedAt           DateTime @default(now()) @map("moved_at") @db.Timestamptz(3)
+  movedBy           String?  @map("moved_by") @db.Uuid
+  /// manual | gps | scan
+  verifiedMethod    String?  @map("verified_method") @db.VarChar(20)
+  gpsAccuracyMeters Decimal? @map("gps_accuracy_meters") @db.Decimal(6, 2)
+
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  asset        Asset          @relation(fields: [assetId], references: [id])
+  fromLocation AssetLocation? @relation("MovementFrom", fields: [fromLocationId], references: [id])
+  toLocation   AssetLocation  @relation("MovementTo", fields: [toLocationId], references: [id])
+
+  @@index([tenantId, assetId, movedAt], map: "idx_asset_location_history_asset")
+  @@map("asset_location_history")
+}
+
+/// §9.8
+model AssetMeter {
+  id                String    @id @db.Uuid
+  tenantId          String    @map("tenant_id") @db.Uuid
+  assetId           String    @map("asset_id") @db.Uuid
+  /// engine_hours | mileage | cycles
+  meterType         String    @map("meter_type") @db.VarChar(20)
+  unitCode          String    @map("unit_code") @db.VarChar(20)
+  currentValue      Decimal   @default(0) @map("current_value") @db.Decimal(19, 6)
+  lifetimeValue     Decimal   @default(0) @map("lifetime_value") @db.Decimal(19, 6)
+  lastReadingAt     DateTime? @map("last_reading_at") @db.Timestamptz(3)
+  /// manual | telematics
+  lastReadingSource String?   @map("last_reading_source") @db.VarChar(20)
+  rowVersion        Int       @default(1) @map("row_version")
+
+  tenant   Tenant              @relation(fields: [tenantId], references: [id])
+  asset    Asset               @relation(fields: [assetId], references: [id])
+  readings AssetMeterReading[]
+
+  @@unique([tenantId, assetId, meterType])
+  @@map("asset_meter")
+}
+
+/// §9.9. Append-only. A reading below the current value is stored with
+/// `qualityStatus = 'anomaly'` and never applied to the parent meter's
+/// counters (domain doc §9 — rollback protection).
+model AssetMeterReading {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  assetMeterId   String   @map("asset_meter_id") @db.Uuid
+  readingValue   Decimal  @map("reading_value") @db.Decimal(19, 6)
+  readingAt      DateTime @default(now()) @map("reading_at") @db.Timestamptz(3)
+  /// manual | telematics
+  source         String   @db.VarChar(20)
+  sourceEntityId String?  @map("source_entity_id") @db.Uuid
+  capturedBy     String?  @map("captured_by") @db.Uuid
+  isEstimated    Boolean  @default(false) @map("is_estimated")
+  /// ok | anomaly
+  qualityStatus  String   @map("quality_status") @db.VarChar(20)
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  assetMeter AssetMeter @relation(fields: [assetMeterId], references: [id])
+
+  @@index([tenantId, assetMeterId, readingAt], map: "idx_asset_meter_reading_meter")
+  @@map("asset_meter_reading")
+}
+
+/// §9.10. Links an asset to a Document/DocumentVersion already stored in
+/// Platform Core's Document foundation (§13 — this table stores references
+/// and certificate metadata, never raw file handling).
+model AssetDocument {
+  id                       String    @id @db.Uuid
+  tenantId                 String    @map("tenant_id") @db.Uuid
+  assetId                  String    @map("asset_id") @db.Uuid
+  documentTypeCode         String    @map("document_type_code") @db.VarChar(60)
+  currentDocumentVersionId String?   @map("current_document_version_id") @db.Uuid
+  issueDate                DateTime? @map("issue_date") @db.Date
+  expiryDate               DateTime? @map("expiry_date") @db.Date
+  /// pending | verified | rejected
+  verificationStatus       String    @map("verification_status") @db.VarChar(20)
+  /// active | superseded | archived
+  status                   String    @db.VarChar(20)
+
+  tenant                 Tenant           @relation(fields: [tenantId], references: [id])
+  asset                  Asset            @relation(fields: [assetId], references: [id])
+  currentDocumentVersion DocumentVersion? @relation(fields: [currentDocumentVersionId], references: [id])
+
+  @@index([tenantId, assetId, documentTypeCode], map: "idx_asset_document_asset_type")
+  @@map("asset_document")
 }
